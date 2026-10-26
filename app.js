@@ -223,12 +223,14 @@ function fromMinutes(total) {
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
-/** The group the bot uses while settings.json lists none: the TELEGRAM_CHAT_ID secret's, which the bot reports. */
-function fallbackGroups() {
+/**
+ * The group from the bot's setup (its TELEGRAM_CHAT_ID secret). Its ID is in status.json once the bot has
+ * reported it; until then it is a row without an ID, saved as {"from_setup": true}, which the bot resolves.
+ */
+function setupGroup(name) {
   const id = status.default_group;
-  if (!id) return [];
-  const title = ((status.groups || {})[String(id)] || {}).title;
-  return [{ name: title || "Team group", chat_id: String(id) }];
+  const title = id ? ((status.groups || {})[String(id)] || {}).title : "";
+  return id ? { name: name || title || "Team group", chat_id: String(id) } : { name: name || "Team group", chat_id: "", setup: true };
 }
 
 /** settings.json as the bot reads it, with the bot's defaults filled in. */
@@ -244,8 +246,9 @@ function normalize(raw) {
     team: (Array.isArray(raw.team) ? raw.team : [])
       .map((p) => ({ name: cleanName(p && p.name), telegram: "@" + cleanUser(p && p.telegram) })),
     groups: Array.isArray(raw.groups) && raw.groups.length
-      ? raw.groups.map((g) => ({ name: cleanName(g && g.name), chat_id: cleanChatId(g && g.chat_id) }))
-      : fallbackGroups(),
+      ? raw.groups.map((g) => (g && g.from_setup ? setupGroup(cleanName(g.name))
+        : { name: cleanName(g && g.name), chat_id: cleanChatId(g && g.chat_id) }))
+      : [setupGroup()],
   };
 }
 
@@ -254,7 +257,7 @@ function toDraft(settings) {
     ...settings,
     days: [...settings.days],
     team: settings.team.map((p) => ({ id: ++rowSeq, name: p.name, user: cleanUser(p.telegram), isNew: false })),
-    groups: settings.groups.map((g) => ({ id: ++rowSeq, name: g.name, chat_id: g.chat_id, isNew: false })),
+    groups: settings.groups.map((g) => ({ id: ++rowSeq, name: g.name, chat_id: g.chat_id, setup: Boolean(g.setup), isNew: false })),
   };
 }
 
@@ -270,14 +273,14 @@ function fromDraft(d) {
       .filter((r) => cleanName(r.name) || cleanUser(r.user))
       .map((r) => ({ name: cleanName(r.name), telegram: "@" + cleanUser(r.user) })),
     groups: d.groups
-      .filter((g) => cleanName(g.name) || cleanChatId(g.chat_id))
-      .map((g) => ({ name: cleanName(g.name), chat_id: cleanChatId(g.chat_id) })),
+      .filter((g) => g.setup || cleanName(g.name) || cleanChatId(g.chat_id))
+      .map((g) => (g.setup ? { name: cleanName(g.name), chat_id: "", setup: true } : { name: cleanName(g.name), chat_id: cleanChatId(g.chat_id) })),
   };
 }
 
 /** What gets written to settings.json: chat IDs as numbers, as Telegram has them. */
 function toFile(settings) {
-  return { ...settings, groups: settings.groups.map((g) => ({ name: g.name, chat_id: Number(g.chat_id) })) };
+  return { ...settings, groups: settings.groups.map((g) => (g.setup ? { name: g.name, from_setup: true } : { name: g.name, chat_id: Number(g.chat_id) })) };
 }
 
 const isDirty = () => draft && remote && JSON.stringify(fromDraft(draft)) !== JSON.stringify(remote.settings);
@@ -323,15 +326,16 @@ function validate(d) {
   for (const g of d.groups) {
     const name = cleanName(g.name);
     const id = cleanChatId(g.chat_id);
-    if (!name && !id) continue;
+    if (!name && !id && !g.setup) continue;
     const e = {};
     if (!name) e.name = "Give the group a name.";
+    if (g.setup) { if (e.name) errors.groups.set(g.id, e); continue; }
     if (!id) e.chat_id = "Add the group’s chat ID.";
     else if (!CHAT_ID_RE.test(id)) e.chat_id = "A chat ID is a number, like -1001234567890.";
     else if (ids.get(id) > 1) { e.chat_id = "This group is in the list twice."; e.showNow = true; }
     if (e.name || e.chat_id) errors.groups.set(g.id, e);
   }
-  const anyGroup = d.groups.some((g) => cleanChatId(g.chat_id));
+  const anyGroup = d.groups.some((g) => g.setup || cleanChatId(g.chat_id));
   if (!anyGroup && (remote.settings.groups.length || Array.isArray(remote.raw.groups))) {
     errors.noGroups = "Keep at least one group, or nobody gets the messages.";
   }
@@ -596,12 +600,20 @@ function renderTeam() {
 
 function renderGroups() {
   if (!draft.groups.length) {
-    const waiting = !Array.isArray(remote.raw.groups) && !status.default_group;
-    ui.groups.replaceChildren(h("li", { class: "list-empty" },
-      h("b", {}, waiting ? "Using the group from the bot’s setup" : "No groups"),
-      waiting ? "Its name and ID show here after the bot’s next hourly run." : `Add @${botName()} to a Telegram group. It shows up below within an hour.`));
+    ui.groups.replaceChildren(h("li", { class: "list-empty" }, h("b", {}, "No groups"),
+      `Add @${botName()} to a Telegram group. It shows up below within an hour.`));
   } else {
-    ui.groups.replaceChildren(...draft.groups.map((row) => bindRow(ui.groupTemplate.content.firstElementChild.cloneNode(true), row, ["name", "chat_id"])));
+    ui.groups.replaceChildren(...draft.groups.map((row) => {
+      const li = bindRow(ui.groupTemplate.content.firstElementChild.cloneNode(true), row, ["name", "chat_id"]);
+      if (row.setup) {
+        const id = $('[data-field="chat_id"]', li);
+        id.readOnly = true;
+        id.tabIndex = -1;
+        id.placeholder = "Shows after the next run";
+        id.classList.add("is-pending");
+      }
+      return li;
+    }));
   }
   renderGroupSuggestions();
 }
@@ -615,14 +627,12 @@ function renderGroupSuggestions() {
       h("p", { class: "suggest-title" }, g.title || "Untitled group"),
       h("p", { class: "suggest-sub" }, `@${botName()} was added to this group · `, h("span", { class: "mono" }, String(g.chat_id)))),
     h("button", { type: "button", class: "btn btn-secondary btn-sm", onclick: () => addGroup({ name: g.title || "", chat_id: String(g.chat_id) }) }, "Add"))));
-  const waiting = !draft.groups.length && !Array.isArray(remote.raw.groups) && !status.default_group;
-  ui.addGroup.disabled = waiting;
-  ui.groupsFoot.textContent = waiting ? ""
-    : `To add a group, add @${botName()} to it in Telegram. It appears here after the bot’s next hourly run.`;
+  ui.groupsFoot.textContent = `To add a group, add @${botName()} to it in Telegram. It appears here after the bot’s next hourly run.`;
 }
 
 /** The line under a group's name: whether the bot can post there, from its last hourly check. */
 function groupStatusLine(row, saved) {
+  if (row.setup) return { kind: "on", text: "Gets the messages now · set up with the bot" };
   const id = cleanChatId(row.chat_id);
   if (!CHAT_ID_RE.test(id)) return null;
   const state = groupState(id);

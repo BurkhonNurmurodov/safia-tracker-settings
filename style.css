@@ -477,3 +477,6 @@ body.has-savebar .toast { bottom: 96px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+.input-cell.is-pending { cursor: default; font-family: var(--font); font-size: var(--t-sm); }
+.input-cell.is-pending::placeholder { color: var(--ink-3); }
+.item:hover .input-cell.is-pending { border-color: transparent; }
