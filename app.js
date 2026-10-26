@@ -76,8 +76,9 @@ class GitHubError extends Error {
 
 async function github(path, { method = "GET", body } = {}) {
   let res;
+  const url = path.startsWith("/") ? `https://api.github.com${path}` : `https://api.github.com/repos/${OWNER}/${REPO}/${path}`;
   try {
-    res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/${path}`, {
+    res = await fetch(url, {
       method,
       cache: "no-store",
       headers: {
@@ -122,10 +123,52 @@ async function writeFile(path, data, sha, message) {
   return result.content.sha;
 }
 
+/** Cleans up a pasted token: spaces, line breaks, quotes and a "Bearer" prefix sneak in when copying. */
+function cleanToken(value) {
+  return value.replace(/^\s*(bearer|token)\s+/i, "").replace(/["'`\s]/g, "");
+}
+
+/**
+ * Loading failed with 401/403/404. Ask GitHub step by step which part is missing,
+ * so the message names the one setting to change. Sets error.diagnosis and error.notToken.
+ */
+async function diagnose(error) {
+  const githubSays = error.message && !/^GitHub HTTP/.test(error.message) ? ` (GitHub says: “${error.message}”)` : "";
+  try {
+    await github("/user");
+  } catch (e) {
+    if (e.status === 401) {
+      error.diagnosis = "GitHub doesn’t recognise this token. Check that you copied the whole token (it starts with github_pat_ and is about 90 characters long), or create a new one.";
+      return;
+    }
+    if (e.status === 0) return;
+  }
+  try {
+    await github(`/repos/${OWNER}/${REPO}`);
+  } catch (e) {
+    if (e.status === 404) {
+      error.diagnosis = `The token works, but it can’t see the private ${REPO} repository. On GitHub, open the token, and under Repository access choose “Only select repositories” and pick ${REPO}. (“Public repositories” is GitHub’s default and doesn’t include it.) Also check that Resource owner is BurkhonNurmurodov.`;
+      return;
+    }
+    if (e.status === 0) return;
+  }
+  if (error.status === 404) {
+    error.notToken = true;
+    error.diagnosis = `The token is fine, but ${SETTINGS_PATH} isn’t in the ${REPO} repository on the ${BRANCH} branch. The bot creates it; open the repository on GitHub to check it’s there.`;
+    return;
+  }
+  if (error.status === 403) {
+    error.diagnosis = `The token can see ${REPO} but isn’t allowed to read its files${githubSays}. On GitHub, open the token, and under Repository permissions set Contents to “Read and write”.`;
+    return;
+  }
+  error.diagnosis = `GitHub refused the token (${error.status})${githubSays}.`;
+}
+
 /** What went wrong, in words, and what to do about it. */
 function explain(error, during) {
   const s = error.status;
   if (s === 0) return "Can’t reach GitHub. Check the internet connection and try again.";
+  if (error.diagnosis) return error.diagnosis;
   if (s === 401) return "GitHub didn’t accept the token. It may have expired or been deleted. Create a new one and paste it below.";
   if (s === 403 && error.rateLimited) return "GitHub’s limit on requests was reached. Wait a few minutes and try again.";
   if (s === 403 && during === "save") return "This token can only read the settings. On GitHub, edit the token and set Contents to “Read and write”.";
@@ -606,7 +649,8 @@ async function load() {
     fillForm();
     renderStatus();
   } catch (error) {
-    if (error instanceof GitHubError && [401, 403, 404].includes(error.status) && !error.rateLimited) {
+    if (error instanceof GitHubError && [401, 403, 404].includes(error.status) && !error.rateLimited) await diagnose(error);
+    if (error instanceof GitHubError && [401, 403, 404].includes(error.status) && !error.rateLimited && !error.notToken) {
       token = null;
       forgetToken();
       showConnect(explain(error, "load"));
@@ -685,9 +729,15 @@ function toast(text) {
 
 ui.connectForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  const value = ui.token.value.trim();
+  const value = cleanToken(ui.token.value);
   if (!value) {
     setMessage(ui.tokenError, "Paste the token from GitHub first.", "error");
+    ui.token.setAttribute("aria-invalid", "true");
+    ui.token.focus();
+    return;
+  }
+  if (!/^(github_pat_|ghp_)\w+$/.test(value)) {
+    setMessage(ui.tokenError, "That doesn’t look like a GitHub token. A token starts with github_pat_ (or ghp_ for a classic one). Copy it again from GitHub: it’s shown only once, right after you press Generate token.", "error");
     ui.token.setAttribute("aria-invalid", "true");
     ui.token.focus();
     return;
