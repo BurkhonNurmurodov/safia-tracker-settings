@@ -3,15 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.github.com; img-src 'self' data:; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.github.com https://api.telegram.org; img-src 'self' data:; base-uri 'none'; form-action 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
-  <title>Reminder bot settings</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f5fbf'/%3E%3Cpath d='M16 7a6 6 0 0 0-6 6v4.5L8 21h16l-2-3.5V13a6 6 0 0 0-6-6Zm-2.5 15.5a2.5 2.5 0 0 0 5 0' fill='none' stroke='%23fff' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <title>Reminder bot</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f6fdf'/%3E%3Cpath d='M16 7a6 6 0 0 0-6 6v4.5L8 21h16l-2-3.5V13a6 6 0 0 0-6-6Zm-2.5 15.5a2.5 2.5 0 0 0 5 0' fill='none' stroke='%23fff' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="style.css">
+  <script src="vendor/nacl-fast.min.js" defer></script>
+  <script src="vendor/sealedbox.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -21,187 +23,254 @@
     <div class="wrap topbar-inner">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 3.5a5.5 5.5 0 0 0-5.5 5.5v4L4.75 16h14.5L17.5 13V9A5.5 5.5 0 0 0 12 3.5Zm-2.25 14.5a2.25 2.25 0 0 0 4.5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 3.5a5.5 5.5 0 0 0-5.5 5.5v4L4.75 16h14.5L17.5 13V9A5.5 5.5 0 0 0 12 3.5Zm-2.25 14.5a2.25 2.25 0 0 0 4.5 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></svg>
         </span>
-        <div>
+        <div class="brand-text">
           <h1 class="brand-title">Reminder bot</h1>
-          <p class="brand-sub">@Safia_Tracker_agent · Notion deadlines → Telegram</p>
+          <p class="brand-sub"><span id="bot-handle">@Safia_Tracker_agent</span><span class="wide-only"> · Notion → Telegram</span></p>
         </div>
       </div>
-      <button type="button" class="btn btn-quiet" id="disconnect" hidden>Disconnect</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="disconnect" hidden>Disconnect</button>
     </div>
   </header>
 
   <main id="main" class="wrap">
-    <noscript><p class="card">This page needs JavaScript to load and save the settings.</p></noscript>
+    <noscript><p class="panel pad">This page needs JavaScript to load and save the settings.</p></noscript>
 
     <!-- Not connected yet -->
-    <section class="card connect" id="connect" aria-labelledby="connect-title" hidden>
-      <h2 id="connect-title" class="card-title">Connect to GitHub</h2>
-      <p class="lead">The bot’s settings live in the private repository <strong>BurkhonNurmurodov/safia-tracker-bot</strong>. This page edits them with a GitHub access token, which you set up once on each device.</p>
+    <section class="connect" id="connect" aria-labelledby="connect-title" hidden>
+      <h2 id="connect-title" class="connect-title">Connect to GitHub</h2>
+      <p class="connect-lead">The settings live in the private repository <b>safia-tracker-bot</b>. This page edits them with a GitHub access token. You set it up once on each device.</p>
       <ol class="steps">
-        <li>
-          <h3 class="step-title">Create a token</h3>
-          <p>On the GitHub page, under <strong>Repository access</strong>, choose <strong>Only select repositories</strong> and pick <strong>safia-tracker-bot</strong>. <strong>Contents</strong> is already set to <strong>Read and write</strong>. Press <strong>Generate token</strong> and copy it.</p>
-          <a class="btn btn-secondary" id="token-link" target="_blank" rel="noopener noreferrer"
-             href="https://github.com/settings/personal-access-tokens/new?name=Reminder+bot+settings&amp;description=Lets+the+reminder+bot+settings+page+edit+data%2Fsettings.json+in+safia-tracker-bot.&amp;expires_in=366&amp;contents=write">
-            Open GitHub’s token page
-            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M8 4H4.75A.75.75 0 0 0 4 4.75v10.5c0 .41.34.75.75.75h10.5c.41 0 .75-.34.75-.75V12M11 4h5v5M16 4l-7 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span class="sr-only">(opens in a new tab)</span>
-          </a>
+        <li class="step">
+          <span class="step-num" aria-hidden="true">1</span>
+          <div class="step-body">
+            <h3 class="step-title">Create a token</h3>
+            <p class="step-text">Under <b>Repository access</b> choose <b>Only select repositories</b> → <b>safia-tracker-bot</b>. <b>Contents</b> and <b>Secrets</b> are already set to Read and write.</p>
+            <a class="btn btn-secondary" id="token-link" target="_blank" rel="noopener noreferrer"
+               href="https://github.com/settings/personal-access-tokens/new?name=Reminder+bot+settings&amp;description=Lets+the+reminder+bot+settings+page+edit+settings+and+the+bot+token+in+safia-tracker-bot.&amp;expires_in=366&amp;contents=write&amp;secrets=write">
+              Open GitHub
+              <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M8 4H4.75A.75.75 0 0 0 4 4.75v10.5c0 .41.34.75.75.75h10.5c.41 0 .75-.34.75-.75V12M11 4h5v5M16 4l-7 7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="sr-only">(opens in a new tab)</span>
+            </a>
+          </div>
         </li>
-        <li>
-          <h3 class="step-title">Paste it here</h3>
-          <form id="connect-form" class="connect-form" novalidate>
-            <div class="field">
-              <label class="label" for="token">Access token</label>
-              <input class="input" id="token" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="github_pat_…" aria-describedby="token-error">
+        <li class="step">
+          <span class="step-num" aria-hidden="true">2</span>
+          <div class="step-body">
+            <h3 class="step-title">Paste it here</h3>
+            <form id="connect-form" class="connect-form" novalidate>
+              <label class="sr-only" for="token">GitHub access token</label>
+              <div class="inline-field">
+                <input class="input mono" id="token" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="github_pat_…" aria-describedby="token-error">
+                <button type="submit" class="btn btn-primary" id="connect-btn">Connect</button>
+              </div>
               <p class="msg msg-error" id="token-error" hidden></p>
-            </div>
-            <label class="check">
-              <input type="checkbox" id="remember" checked>
-              <span>Remember on this device</span>
-            </label>
-            <button type="submit" class="btn btn-primary" id="connect-btn">Connect</button>
-          </form>
+              <label class="check">
+                <input type="checkbox" id="remember" checked>
+                <span>Remember on this device</span>
+              </label>
+            </form>
+          </div>
         </li>
       </ol>
-      <p class="fineprint">The token stays in this browser and is sent only to GitHub. If it expires, this page asks for a new one.</p>
+      <p class="fineprint">The token stays in this browser and is sent only to GitHub.</p>
     </section>
 
     <!-- Loading -->
     <section id="loading" class="loading" aria-busy="true" aria-live="polite" hidden>
       <p class="sr-only">Loading the settings…</p>
-      <div class="skeleton skeleton-status"></div>
-      <div class="skeleton skeleton-card"></div>
-      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-hero"></div>
+      <div class="skeleton skeleton-tabs"></div>
+      <div class="skeleton skeleton-panel"></div>
     </section>
 
     <!-- Could not load -->
-    <section class="card" id="failed" role="alert" hidden>
-      <h2 class="card-title">Couldn’t load the settings</h2>
-      <p id="failed-text" class="lead"></p>
+    <section class="panel pad failed" id="failed" role="alert" hidden>
+      <h2 class="failed-title">Couldn’t load the settings</h2>
+      <p id="failed-text" class="muted"></p>
       <button type="button" class="btn btn-primary" id="retry">Try again</button>
     </section>
 
     <!-- The settings -->
-    <form id="settings" class="stack" novalidate hidden>
-      <section class="card status" aria-labelledby="status-title">
-        <div class="status-head">
-          <span class="badge" id="status-badge"></span>
-          <h2 class="status-title" id="status-title"></h2>
+    <form id="settings" novalidate hidden>
+      <section class="hero" aria-label="Status">
+        <div class="tile tile-main">
+          <p class="tile-label"><span class="dot" id="status-dot"></span><span id="status-word"></span></p>
+          <p class="tile-value" id="status-next"></p>
+          <p class="tile-sub" id="status-next-sub"></p>
         </div>
-        <dl class="facts" id="status-facts"></dl>
-        <div class="alerts" id="alerts"></div>
-      </section>
-
-      <section class="card" aria-labelledby="schedule-title">
-        <h2 class="card-title" id="schedule-title">Schedule</h2>
-
-        <label class="switch-row">
-          <span class="switch-text">
-            <span class="switch-label">Send reminders</span>
-            <span class="hint" id="enabled-hint"></span>
-          </span>
-          <input type="checkbox" role="switch" class="switch" id="enabled" aria-describedby="enabled-hint">
-        </label>
-
-        <div class="field">
-          <label class="label" for="send-at">Send time</label>
-          <select class="input select" id="send-at" aria-describedby="send-at-hint"></select>
-          <p class="hint" id="send-at-hint"></p>
+        <div class="tile">
+          <p class="tile-label">Last sent</p>
+          <p class="tile-value tile-value-sm" id="status-last"></p>
+          <p class="tile-sub" id="status-last-sub"></p>
         </div>
-
-        <fieldset class="field" aria-describedby="days-hint days-error">
-          <legend class="label">Days</legend>
-          <div class="pills" id="days"></div>
-          <p class="hint" id="days-hint">On a day off nobody is reminded; overdue tasks show up again in the next message.</p>
-          <p class="msg msg-error" id="days-error" hidden></p>
-        </fieldset>
+        <div class="tile">
+          <p class="tile-label">Sends to</p>
+          <p class="tile-value tile-value-sm" id="status-reach"></p>
+          <p class="tile-sub" id="status-reach-sub"></p>
+        </div>
       </section>
+      <div class="alerts" id="alerts"></div>
 
-      <section class="card" aria-labelledby="message-title">
-        <h2 class="card-title" id="message-title">Message</h2>
+      <nav class="tabs" role="tablist" aria-label="Settings">
+        <button type="button" class="tab" role="tab" id="tab-reminders" aria-controls="panel-reminders" aria-selected="true">Reminders<span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" id="tab-team" aria-controls="panel-team" aria-selected="false" tabindex="-1">Team <span class="tab-count" id="team-count"></span><span class="tab-dot" hidden></span></button>
+        <button type="button" class="tab" role="tab" id="tab-config" aria-controls="panel-config" aria-selected="false" tabindex="-1">Config<span class="tab-dot" hidden></span></button>
+      </nav>
 
-        <fieldset class="field">
-          <legend class="label">Deadlines to warn about</legend>
-          <p class="hint hint-top">Overdue tasks are always in the message, every day until they are Done.</p>
-          <div class="choices">
-            <label class="choice">
-              <input type="radio" name="remind_days" value="0">
-              <span><span class="choice-title">Due today</span><span class="choice-desc">Nothing ahead of time</span></span>
+      <!-- Reminders -->
+      <div class="tabpanel" role="tabpanel" id="panel-reminders" aria-labelledby="tab-reminders">
+        <section class="group" aria-labelledby="schedule-title">
+          <h2 class="group-title" id="schedule-title">Schedule</h2>
+          <div class="panel">
+            <label class="row" for="enabled">
+              <span class="row-text">
+                <span class="row-label">Send reminders</span>
+                <span class="row-hint" id="enabled-hint"></span>
+              </span>
+              <input type="checkbox" role="switch" class="switch" id="enabled" aria-describedby="enabled-hint">
             </label>
-            <label class="choice">
-              <input type="radio" name="remind_days" value="1">
-              <span><span class="choice-title">Up to tomorrow</span><span class="choice-desc">Today and tomorrow</span></span>
-            </label>
-            <label class="choice">
-              <input type="radio" name="remind_days" value="2">
-              <span><span class="choice-title">Up to 2 days ahead</span><span class="choice-desc">Today, tomorrow, in 2 days</span></span>
-            </label>
-            <label class="choice">
-              <input type="radio" name="remind_days" value="3">
-              <span><span class="choice-title">Up to 3 days ahead</span><span class="choice-desc">Today through in 3 days</span></span>
-            </label>
+            <div class="row">
+              <span class="row-text">
+                <label class="row-label" for="send-at">Send time</label>
+                <span class="row-hint" id="send-at-hint"></span>
+              </span>
+              <select class="input select select-time" id="send-at" aria-describedby="send-at-hint"></select>
+            </div>
+            <fieldset class="row row-wrap" aria-describedby="days-hint days-error">
+              <span class="row-text">
+                <legend class="row-label">Days</legend>
+                <span class="row-hint" id="days-hint">On days off nobody is reminded</span>
+                <span class="msg msg-error" id="days-error" hidden></span>
+              </span>
+              <div class="days" id="days"></div>
+            </fieldset>
           </div>
-        </fieldset>
+        </section>
 
-        <fieldset class="field">
-          <legend class="label">Task sections</legend>
-          <div class="choices">
-            <label class="choice">
-              <input type="radio" name="sections" value="collapsed">
-              <span><span class="choice-title">Collapsed</span><span class="choice-desc">Shows the counts; a tap opens the tasks</span></span>
-            </label>
-            <label class="choice">
-              <input type="radio" name="sections" value="expanded">
-              <span><span class="choice-title">Expanded</span><span class="choice-desc">Every task is visible right away</span></span>
-            </label>
+        <section class="group" aria-labelledby="message-title">
+          <h2 class="group-title" id="message-title">Message</h2>
+          <div class="panel">
+            <fieldset class="row row-wrap">
+              <span class="row-text">
+                <legend class="row-label">Warn ahead</legend>
+                <span class="row-hint">Overdue tasks are always included</span>
+              </span>
+              <div class="segmented" id="remind-days">
+                <label><input type="radio" name="remind_days" value="0"><span>Due today</span></label>
+                <label><input type="radio" name="remind_days" value="1"><span>1 day</span></label>
+                <label><input type="radio" name="remind_days" value="2"><span>2 days</span></label>
+                <label><input type="radio" name="remind_days" value="3"><span>3 days</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="row row-wrap">
+              <span class="row-text">
+                <legend class="row-label">Task sections</legend>
+                <span class="row-hint" id="sections-hint"></span>
+              </span>
+              <div class="segmented">
+                <label><input type="radio" name="sections" value="collapsed"><span>Collapsed</span></label>
+                <label><input type="radio" name="sections" value="expanded"><span>Expanded</span></label>
+              </div>
+            </fieldset>
+            <figure class="preview">
+              <figcaption class="preview-caption">Preview · sample tasks</figcaption>
+              <div class="tg" id="preview"></div>
+            </figure>
           </div>
-        </fieldset>
+        </section>
+      </div>
 
-        <figure class="preview">
-          <figcaption class="preview-caption">
-            <span class="label">Example message</span>
-            <span class="hint">Sample tasks, real layout. It follows the options above.</span>
-          </figcaption>
-          <div class="tg" id="preview"></div>
-        </figure>
-      </section>
+      <!-- Team -->
+      <div class="tabpanel" role="tabpanel" id="panel-team" aria-labelledby="tab-team" hidden>
+        <section class="group" aria-labelledby="team-title">
+          <div class="group-head">
+            <div>
+              <h2 class="group-title" id="team-title">Telegram usernames</h2>
+              <p class="group-hint">Each person’s message mentions them, so Telegram notifies them. Names must match Notion’s Assignee column.</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="add-person">
+              <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Add person
+            </button>
+          </div>
+          <div id="team-alert"></div>
+          <div class="panel list">
+            <div class="list-head" aria-hidden="true">
+              <span>Name in Notion</span>
+              <span>Telegram</span>
+              <span></span>
+            </div>
+            <ul class="list-body" id="team"></ul>
+          </div>
+          <datalist id="notion-people"></datalist>
+        </section>
+      </div>
 
-      <section class="card" aria-labelledby="team-title">
-        <div class="card-head">
-          <h2 class="card-title" id="team-title">Team</h2>
-          <span class="count" id="team-count"></span>
-        </div>
-        <p class="lead">Each person’s message mentions their Telegram username, so Telegram notifies them. Write the name exactly as it appears in Notion’s <strong>Assignee</strong> column.</p>
-        <div class="team-head" aria-hidden="true">
-          <span>Name in Notion</span>
-          <span>Telegram username</span>
-          <span></span>
-        </div>
-        <ul class="team" id="team"></ul>
-        <datalist id="notion-people"></datalist>
-        <button type="button" class="btn btn-secondary" id="add-person">
-          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Add person
-        </button>
-      </section>
+      <!-- Config -->
+      <div class="tabpanel" role="tabpanel" id="panel-config" aria-labelledby="tab-config" hidden>
+        <section class="group" aria-labelledby="groups-title">
+          <div class="group-head">
+            <div>
+              <h2 class="group-title" id="groups-title">Telegram groups</h2>
+              <p class="group-hint">Every group in this list gets the day’s messages.</p>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="add-group">
+              <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              Add group
+            </button>
+          </div>
+          <div class="panel list">
+            <div class="list-head list-head-groups" aria-hidden="true">
+              <span>Name</span>
+              <span>Chat ID</span>
+              <span></span>
+            </div>
+            <ul class="list-body" id="groups"></ul>
+          </div>
+          <div id="group-suggestions"></div>
+          <p class="group-foot" id="groups-foot"></p>
+        </section>
 
-      <p class="footer-links">
-        <a href="https://github.com/BurkhonNurmurodov/safia-tracker-bot/actions" target="_blank" rel="noopener noreferrer">Run history on GitHub</a>
-        <span aria-hidden="true">·</span>
-        <a href="https://github.com/BurkhonNurmurodov/safia-tracker-bot" target="_blank" rel="noopener noreferrer">Bot repository</a>
-      </p>
+        <section class="group" aria-labelledby="bot-title">
+          <h2 class="group-title" id="bot-title">Bot</h2>
+          <div class="panel">
+            <div class="row row-wrap" id="bot-row">
+              <span class="row-text">
+                <span class="row-label">Bot token</span>
+                <span class="row-hint" id="bot-token-hint"></span>
+              </span>
+              <button type="button" class="btn btn-secondary btn-sm" id="bot-token-open">Replace token</button>
+            </div>
+            <div class="row-expand" id="bot-token-form" hidden>
+              <label class="field-label" for="bot-token">New token from @BotFather</label>
+              <div class="inline-field">
+                <input class="input mono" id="bot-token" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="123456789:AA…" aria-describedby="bot-token-msg">
+                <button type="button" class="btn btn-primary" id="bot-token-save">Check and save</button>
+              </div>
+              <p class="msg" id="bot-token-msg" hidden></p>
+              <p class="field-hint">In Telegram, open <b>@BotFather</b> → /mybots → your bot → API Token. The token is encrypted in this browser and saved as a GitHub secret; nobody can read it back.</p>
+              <button type="button" class="btn btn-ghost btn-sm" id="bot-token-cancel">Cancel</button>
+            </div>
+          </div>
+        </section>
+
+        <p class="footer-links">
+          <a href="https://github.com/BurkhonNurmurodov/safia-tracker-bot/actions" target="_blank" rel="noopener noreferrer">Run history</a>
+          <span aria-hidden="true">·</span>
+          <a href="https://github.com/BurkhonNurmurodov/safia-tracker-bot" target="_blank" rel="noopener noreferrer">Bot repository</a>
+        </p>
+      </div>
     </form>
   </main>
 
   <div class="savebar" id="savebar" hidden>
-    <div class="wrap savebar-inner">
+    <div class="savebar-inner">
       <p class="savebar-text" id="save-text" aria-live="polite">Unsaved changes</p>
       <div class="savebar-actions">
-        <button type="button" class="btn btn-quiet" id="discard">Discard</button>
-        <button type="button" class="btn btn-primary" id="save">Save changes</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="discard">Discard</button>
+        <button type="button" class="btn btn-primary btn-sm" id="save">Save</button>
       </div>
     </div>
   </div>
@@ -209,22 +278,41 @@
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
   <template id="row-template">
-    <li class="team-row">
-      <div class="field">
-        <label class="label team-label">Name in Notion</label>
-        <input class="input" type="text" data-field="name" autocomplete="off" spellcheck="false" list="notion-people">
+    <li class="item">
+      <div class="cell">
+        <label class="sr-only">Name in Notion</label>
+        <input class="input input-cell" type="text" data-field="name" autocomplete="off" spellcheck="false" list="notion-people" placeholder="Name in Notion">
         <p class="msg" data-msg="name" hidden></p>
       </div>
-      <div class="field">
-        <label class="label team-label">Telegram username</label>
+      <div class="cell">
+        <label class="sr-only">Telegram username</label>
         <div class="affix">
           <span class="affix-text" aria-hidden="true">@</span>
-          <input class="input" type="text" data-field="user" autocomplete="off" spellcheck="false" autocapitalize="off" inputmode="text">
+          <input class="input input-cell" type="text" data-field="user" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="username">
         </div>
         <p class="msg" data-msg="user" hidden></p>
       </div>
       <button type="button" class="icon-btn" data-remove>
-        <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </li>
+  </template>
+
+  <template id="group-template">
+    <li class="item item-group">
+      <div class="cell">
+        <label class="sr-only">Group name</label>
+        <input class="input input-cell" type="text" data-field="name" autocomplete="off" placeholder="Group name">
+        <p class="cell-status" data-status></p>
+        <p class="msg" data-msg="name" hidden></p>
+      </div>
+      <div class="cell">
+        <label class="sr-only">Chat ID</label>
+        <input class="input input-cell mono" type="text" data-field="chat_id" autocomplete="off" spellcheck="false" inputmode="numeric" placeholder="-100…">
+        <p class="msg" data-msg="chat_id" hidden></p>
+      </div>
+      <button type="button" class="icon-btn" data-remove>
+        <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M5.5 5.5l9 9M14.5 5.5l-9 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
     </li>
   </template>
