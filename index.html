@@ -11,10 +11,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
-  <link rel="stylesheet" href="style.css?v=202610260635">
-  <script src="vendor/nacl-fast.min.js?v=202610260635" defer></script>
-  <script src="vendor/sealedbox.js?v=202610260635" defer></script>
-  <script src="app.js?v=202610260635" defer></script>
+  <link rel="stylesheet" href="style.css?v=202610260653">
+  <script src="vendor/nacl-fast.min.js?v=202610260653" defer></script>
+  <script src="vendor/sealedbox.js?v=202610260653" defer></script>
+  <script src="app.js?v=202610260653" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to settings</a>
@@ -188,7 +188,7 @@
           <div class="group-head">
             <div>
               <h2 class="group-title" id="team-title">Telegram usernames</h2>
-              <p class="group-hint">Each person’s message mentions them, so Telegram notifies them. Names must match Notion’s Assignee column.</p>
+              <p class="group-hint">Messages go out in this order. Drag a row to move it. Names must match Notion’s Assignee column.</p>
             </div>
             <button type="button" class="btn btn-secondary btn-sm" id="add-person">
               <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -197,12 +197,14 @@
           </div>
           <div id="team-alert"></div>
           <div class="panel list">
-            <div class="list-head" aria-hidden="true">
+            <div class="list-head list-head-team" aria-hidden="true">
+              <span>#</span>
               <span>Name in Notion</span>
               <span>Telegram</span>
               <span></span>
             </div>
             <ul class="list-body" id="team"></ul>
+            <p class="sr-only" aria-live="polite" id="team-live"></p>
           </div>
           <datalist id="notion-people"></datalist>
         </section>
@@ -278,7 +280,11 @@
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
   <template id="row-template">
-    <li class="item">
+    <li class="item item-team">
+      <button type="button" class="drag-handle" data-drag aria-roledescription="drag handle">
+        <span class="drag-num" data-num></span>
+        <svg class="drag-grip" viewBox="0 0 12 16" width="10" height="14" aria-hidden="true"><g fill="currentColor"><circle cx="3" cy="3" r="1.4"/><circle cx="9" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="9" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="9" cy="13" r="1.4"/></g></svg>
+      </button>
       <div class="cell">
         <label class="sr-only">Name in Notion</label>
         <input class="input input-cell" type="text" data-field="name" autocomplete="off" spellcheck="false" list="notion-people" placeholder="Name in Notion">

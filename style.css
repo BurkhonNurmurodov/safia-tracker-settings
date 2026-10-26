@@ -480,3 +480,36 @@ body.has-savebar .toast { bottom: 96px; }
 .input-cell.is-pending { cursor: default; font-family: var(--font); font-size: var(--t-sm); }
 .input-cell.is-pending::placeholder { color: var(--ink-3); }
 .item:hover .input-cell.is-pending { border-color: transparent; }
+
+/* ---------------------------------------------------------------- team order */
+
+.list-head-team, .item-team { grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 32px; }
+.list-head-team span:first-child { padding-left: 0; text-align: center; }
+.drag-handle {
+  position: relative; display: grid; place-items: center; width: 28px; height: var(--h-control);
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink-3);
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.drag-handle:hover, .drag-handle:focus-visible { background: var(--hover); color: var(--ink); }
+.drag-num { font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.drag-grip { position: absolute; opacity: 0; transition: opacity 150ms ease; }
+.item:hover .drag-grip, .drag-handle:focus-visible .drag-grip, .item.is-dragging .drag-grip { opacity: 1; }
+.item:hover .drag-num, .drag-handle:focus-visible .drag-num, .item.is-dragging .drag-num { opacity: 0; }
+.item.is-dragging {
+  position: relative; z-index: 2; background: var(--surface); border-radius: var(--r-sm);
+  box-shadow: var(--shadow-float); cursor: grabbing;
+}
+.item.is-dragging .drag-handle { cursor: grabbing; }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select: none; }
+
+@media (max-width: 639px) {
+  .item-team { grid-template-columns: 28px minmax(0, 1fr) 32px; }
+  .item-team .drag-handle { grid-column: 1; grid-row: 1 / span 2; align-self: center; height: 56px; }
+  .item-team .drag-grip { opacity: 1; }
+  .item-team .drag-num { opacity: 0; }
+  .item.item-team .cell:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .item.item-team .cell:nth-child(3) { grid-column: 2; grid-row: 2; }
+  .item.item-team .cell:nth-child(2) .input-cell { color: var(--ink); font-size: var(--t-base); }
+  .item.item-team .cell:nth-child(3) .input-cell { color: var(--ink-2); font-size: var(--t-sm); }
+  .item.item-team .icon-btn { grid-column: 3; }
+}

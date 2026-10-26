@@ -596,6 +596,87 @@ function renderTeam() {
     return;
   }
   ui.team.replaceChildren(...draft.team.map((row) => bindRow(ui.rowTemplate.content.firstElementChild.cloneNode(true), row, ["name", "user"])));
+  numberTeam();
+}
+
+/** Each row's place in the send order, on its drag handle. */
+function numberTeam() {
+  $$(".item", ui.team).forEach((li, i) => {
+    const row = draft.team.find((r) => r.id === Number(li.dataset.id));
+    $("[data-num]", li).textContent = String(i + 1);
+    $("[data-drag]", li).setAttribute("aria-label",
+      `Move ${cleanName(row && row.name) || "this person"}, position ${i + 1} of ${draft.team.length}. Use the up and down arrow keys.`);
+  });
+}
+
+/** Move a team row to another place in the order, in the draft and on screen, without rebuilding the list. */
+function moveTeamRow(id, to) {
+  const from = draft.team.findIndex((r) => r.id === id);
+  to = Math.max(0, Math.min(draft.team.length - 1, to));
+  if (from < 0 || from === to) return false;
+  const [row] = draft.team.splice(from, 1);
+  draft.team.splice(to, 0, row);
+  const li = $(`.item[data-id="${id}"]`, ui.team);
+  const items = $$(".item", ui.team).filter((x) => x !== li);
+  ui.team.insertBefore(li, items[to] || null);
+  numberTeam();
+  return true;
+}
+
+function bindTeamOrder() {
+  ui.team.addEventListener("keydown", (event) => {
+    const handle = event.target.closest("[data-drag]");
+    const step = { ArrowUp: -1, ArrowDown: 1 }[event.key];
+    if (!handle || !step) return;
+    event.preventDefault();
+    const id = Number(handle.closest(".item").dataset.id);
+    const index = draft.team.findIndex((r) => r.id === id);
+    if (!moveTeamRow(id, index + step)) return;
+    handle.focus();
+    $("#team-live").textContent = `${cleanName(draft.team[index + step].name) || "Row"} moved to position ${index + step + 1} of ${draft.team.length}.`;
+    refresh();
+  });
+
+  // Drag with a mouse, pen or finger: the row follows the pointer and swaps places as it passes its neighbours.
+  ui.team.addEventListener("pointerdown", (event) => {
+    const handle = event.target.closest("[data-drag]");
+    if (!handle || event.button > 0) return;
+    event.preventDefault();
+    const li = handle.closest(".item");
+    const id = Number(li.dataset.id);
+    let lastY = event.clientY, offset = 0;
+    handle.setPointerCapture(event.pointerId);
+    li.classList.add("is-dragging");
+    document.body.classList.add("is-dragging");
+    const move = (e) => {
+      offset += e.clientY - lastY;
+      lastY = e.clientY;
+      const index = draft.team.findIndex((r) => r.id === id);
+      const items = $$(".item", ui.team);
+      const neighbour = offset < 0 ? items[index - 1] : items[index + 1];
+      if (neighbour) {
+        const half = neighbour.getBoundingClientRect().height / 2;
+        if (Math.abs(offset) > half) {
+          const before = li.getBoundingClientRect().top;
+          moveTeamRow(id, index + (offset < 0 ? -1 : 1));
+          offset -= li.getBoundingClientRect().top - before;  // the row jumped; keep it under the pointer
+        }
+      }
+      li.style.transform = `translateY(${offset}px)`;
+    };
+    const end = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", end);
+      handle.removeEventListener("pointercancel", end);
+      li.classList.remove("is-dragging");
+      document.body.classList.remove("is-dragging");
+      li.style.transform = "";
+      refresh();
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  });
 }
 
 function renderGroups() {
@@ -652,6 +733,7 @@ function refresh() {
   ui.sectionsHint.textContent = draft.sections_open ? "Every task is visible right away" : "Counts only; a tap opens the tasks";
   setMessage(ui.daysError, show("days") ? errors.days : null, "error");
 
+  numberTeam();
   const notion = new Set((status.notion_people || []).map(nameKey));
   for (const row of draft.team) {
     const li = $(`.item[data-id="${row.id}"]`, ui.team);
@@ -1006,7 +1088,10 @@ function describeChanges(before, after) {
   if (before.days.join() !== after.days.join()) parts.push(`days ${after.days.join(", ") || "none"}`);
   if (before.remind_days !== after.remind_days) parts.push(`${after.remind_days} days ahead`);
   if (before.sections_open !== after.sections_open) parts.push(after.sections_open ? "sections expanded" : "sections collapsed");
-  if (JSON.stringify(before.team) !== JSON.stringify(after.team)) parts.push("team");
+  if (JSON.stringify(before.team) !== JSON.stringify(after.team)) {
+    const sameSet = JSON.stringify([...before.team].sort((a, b) => a.name.localeCompare(b.name))) === JSON.stringify([...after.team].sort((a, b) => a.name.localeCompare(b.name)));
+    parts.push(sameSet ? "team order" : "team");
+  }
   if (JSON.stringify(before.groups) !== JSON.stringify(after.groups)) parts.push("groups");
   return `Settings: ${parts.join(", ") || "update"} (from the settings page)`;
 }
@@ -1126,6 +1211,7 @@ $$('input[name="remind_days"]').forEach((r) => r.addEventListener("change", () =
 $$('input[name="sections"]').forEach((r) => r.addEventListener("change", () => { draft.sections_open = r.value === "expanded"; refresh(); }));
 
 bindList(ui.team, () => draft.team, ui.addPerson);
+bindTeamOrder();
 bindList(ui.groups, () => draft.groups, ui.addGroup);
 ui.addPerson.addEventListener("click", () => addPeople([]));
 ui.addGroup.addEventListener("click", () => addGroup(null));
